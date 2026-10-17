@@ -36,7 +36,6 @@ jobs:
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/res/drawable
 
-        # 1. settings.gradle
         cat << 'EOF' > settings.gradle
         pluginManagement {
             repositories {
@@ -56,7 +55,6 @@ jobs:
         include ':app'
         EOF
 
-        # 2. build.gradle (Root)
         cat << 'EOF' > build.gradle
         plugins {
             id 'com.android.application' version '8.2.0' apply false
@@ -64,7 +62,6 @@ jobs:
         }
         EOF
 
-        # 3. gradle.properties
         cat << 'EOF' > gradle.properties
         org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
         android.useAndroidX=true
@@ -73,7 +70,6 @@ jobs:
         kotlin.jvm.target.validation.mode = IGNORE
         EOF
 
-        # 4. app/build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -114,7 +110,6 @@ jobs:
         }
         EOF
 
-        # 5. AndroidManifest.xml (माइक्रोफोन परमिशन जोड़ी गई है बीट डिटेक्शन के लिए)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -141,14 +136,12 @@ jobs:
         </manifest>
         EOF
 
-        # 6. strings.xml
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">DJ Flashlight</string>
         </resources>
         EOF
 
-        # 7. circle_button_bg.xml
         cat << 'EOF' > app/src/main/res/drawable/circle_button_bg.xml
         <?xml version="1.0" encoding="utf-8"?>
         <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
@@ -156,7 +149,6 @@ jobs:
         </shape>
         EOF
 
-        # 8. activity_main.xml (नया UI: ऑडियो चुनने और DJ मोड के लिए)
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -169,7 +161,7 @@ jobs:
                 android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="60dp"
+                android:layout_marginTop="50dp"
                 android:text="DJ FLASHLIGHT"
                 android:textColor="#FF5252"
                 android:textSize="36sp"
@@ -182,7 +174,7 @@ jobs:
                 android:id="@+id/tvFileName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="10dp"
                 android:text="No Audio Selected"
                 android:textColor="#BBDEFB"
                 android:textSize="16sp"
@@ -190,45 +182,46 @@ jobs:
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvTitle" />
 
+            <!-- Volume Meter जो बताएगा आवाज़ कितनी तेज़ है -->
+            <TextView
+                android:id="@+id/tvVolume"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:text="Beat: 0"
+                android:textColor="#4CAF50"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvFileName" />
+
             <Button
                 android:id="@+id/btnSelectAudio"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="15dp"
                 android:backgroundTint="#1976D2"
                 android:text="Choose Audio"
                 android:textColor="#FFFFFF"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvFileName" />
+                app:layout_constraintTop_toBottomOf="@id/tvVolume" />
 
             <ImageButton
                 android:id="@+id/btnPlayDj"
-                android:layout_width="150dp"
-                android:layout_height="150dp"
-                android:layout_marginTop="50dp"
+                android:layout_width="140dp"
+                android:layout_height="140dp"
+                android:layout_marginTop="30dp"
                 android:background="@drawable/circle_button_bg"
                 android:src="@android:drawable/ic_media_play"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/btnSelectAudio" />
 
-            <Button
-                android:id="@+id/btnSosMode"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="40dp"
-                android:backgroundTint="#D32F2F"
-                android:text="SOS Mode (Manual)"
-                android:textColor="#FFFFFF"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/btnPlayDj" />
-
         </androidx.constraintlayout.widget.ConstraintLayout>
         EOF
 
-        # 9. MainActivity.kt (DJ मोड और ऑडियो बीट डिटेक्शन का लॉजिक)
         cat << 'EOF' > app/src/main/java/com/sos/flashlight/MainActivity.kt
         package com.sos.flashlight
 
@@ -239,10 +232,7 @@ jobs:
         import android.media.MediaPlayer
         import android.media.audiofx.Visualizer
         import android.net.Uri
-        import android.os.Build
         import android.os.Bundle
-        import android.os.Handler
-        import android.os.Looper
         import android.widget.Button
         import android.widget.ImageButton
         import android.widget.TextView
@@ -251,37 +241,25 @@ jobs:
         import androidx.appcompat.app.AppCompatActivity
         import androidx.core.app.ActivityCompat
         import androidx.core.content.ContextCompat
-        import kotlin.math.abs
+        import kotlin.math.sqrt
 
         class MainActivity : AppCompatActivity() {
 
             private lateinit var cameraManager: CameraManager
             private var cameraId: String? = null
             private var isFlashOn = false
+            private var lastFlashToggleTime = 0L
 
             private lateinit var tvFileName: TextView
+            private lateinit var tvVolume: TextView
             private lateinit var btnSelectAudio: Button
             private lateinit var btnPlayDj: ImageButton
-            private lateinit var btnSosMode: Button
 
             private var mediaPlayer: MediaPlayer? = null
             private var visualizer: Visualizer? = null
             private var selectedAudioUri: Uri? = null
             private var isDjPlaying = false
 
-            // SOS मोड के लिए
-            private var isSosMode = false
-            private val handler = Handler(Looper.getMainLooper())
-            private val flashRunnable = object : Runnable {
-                override fun run() {
-                    toggleFlash(!isFlashOn)
-                    if (isSosMode) {
-                        handler.postDelayed(this, 300)
-                    }
-                }
-            }
-
-            // ऑडियो चुनने का लांचर
             private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                 uri?.let {
                     selectedAudioUri = it
@@ -301,9 +279,9 @@ jobs:
                 }
 
                 tvFileName = findViewById(R.id.tvFileName)
+                tvVolume = findViewById(R.id.tvVolume)
                 btnSelectAudio = findViewById(R.id.btnSelectAudio)
                 btnPlayDj = findViewById(R.id.btnPlayDj)
-                btnSosMode = findViewById(R.id.btnSosMode)
 
                 btnSelectAudio.setOnClickListener {
                     getContent.launch("audio/*")
@@ -316,15 +294,6 @@ jobs:
                         stopDjMode()
                     } else {
                         checkPermissionAndStartDj()
-                    }
-                }
-
-                btnSosMode.setOnClickListener {
-                    if (isDjPlaying) stopDjMode()
-                    if (isSosMode) {
-                        stopSosMode()
-                    } else {
-                        startSosMode()
                     }
                 }
             }
@@ -342,7 +311,7 @@ jobs:
                 if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     startDjMode()
                 } else {
-                    Toast.makeText(this, "ऑडियो बीट के लिए माइक्रोफोन परमिशन चाहिए!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "माइक्रोफोन परमिशन के बिना DJ मोड काम नहीं करेगा!", Toast.LENGTH_LONG).show()
                 }
             }
 
@@ -360,13 +329,22 @@ jobs:
                         captureSize = Visualizer.getCaptureSizeRange()[1]
                         setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                             override fun onWaveFormDataCapture(visualizer: Visualizer, waveform: ByteArray, samplingRate: Int) {
+                                // RMS (Root Mean Square) निकालना जो बीट को सटीकता से पकड़ता है
                                 var sum = 0.0
                                 for (b in waveform) {
-                                    sum += abs(b.toInt()).toDouble()
+                                    sum += (b.toDouble() * b.toDouble())
                                 }
-                                val amplitude = sum / waveform.size
-                                // अगर आवाज़ का स्तर एक लिमिट से ज्यादा है तो फ्लैश ऑन करें
-                                if (amplitude > 10.0) {
+                                val rms = sqrt(sum / waveform.size)
+                                // 0-100 के स्केल में बदलना (128 अधिकतम वैल्यू है)
+                                val volume = ((rms / 128.0) * 100).toInt()
+
+                                // UI पर वॉल्यूम दिखाना (Main Thread पर)
+                                runOnUiThread {
+                                    tvVolume.text = "Beat: $volume"
+                                }
+
+                                // Threshold: अगर आवाज़ 25 से ज्यादा है तो लाइट जलाओ
+                                if (volume > 25) {
                                     toggleFlash(true)
                                 } else {
                                     toggleFlash(false)
@@ -381,10 +359,10 @@ jobs:
                     isDjPlaying = true
                     btnPlayDj.setImageResource(android.R.drawable.ic_media_pause)
                     tvFileName.text = "DJ Mode: ON 🔥"
-                    btnSosMode.isEnabled = false
+                    btnSelectAudio.isEnabled = false
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    Toast.makeText(this, "ऑडियो चलाने में एरर आया!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "ऑडियो चलाने में एरर!", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -392,7 +370,8 @@ jobs:
                 isDjPlaying = false
                 btnPlayDj.setImageResource(android.R.drawable.ic_media_play)
                 tvFileName.text = "Audio Ready!"
-                btnSosMode.isEnabled = true
+                tvVolume.text = "Beat: 0"
+                btnSelectAudio.isEnabled = true
                 
                 visualizer?.release()
                 visualizer = null
@@ -404,25 +383,17 @@ jobs:
                 toggleFlash(false)
             }
 
-            private fun startSosMode() {
-                if (cameraId == null) return
-                isSosMode = true
-                btnSosMode.text = "STOP SOS"
-                handler.post(flashRunnable)
-            }
-
-            private fun stopSosMode() {
-                isSosMode = false
-                btnSosMode.text = "SOS Mode (Manual)"
-                handler.removeCallbacks(flashRunnable)
-                toggleFlash(false)
-            }
-
+            // 🔥 Hardware Protection: 50ms का डिले ताकि कैमरा हैंग न हो
             private fun toggleFlash(state: Boolean) {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastFlashToggleTime < 50) return // 50ms से पहले स्टेट न बदलें
+                if (isFlashOn == state) return // अगर पहले से उसी स्टेट में है तो कुछ न करें
+
                 try {
-                    if (cameraId != null && isFlashOn != state) {
+                    if (cameraId != null) {
                         cameraManager.setTorchMode(cameraId!!, state)
                         isFlashOn = state
+                        lastFlashToggleTime = currentTime
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -432,7 +403,6 @@ jobs:
             override fun onDestroy() {
                 super.onDestroy()
                 if (isDjPlaying) stopDjMode()
-                if (isSosMode) stopSosMode()
             }
         }
         EOF
