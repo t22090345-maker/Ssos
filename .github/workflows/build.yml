@@ -19,12 +19,11 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # 🔧 FIX: स्पष्ट रूप से लाइसेंस स्वीकार करने के लिए with पैरामीटर जोड़ें
+    # 🔧 मुख्य फिक्स: v3 के साथ 'packages: ''' सेट करें
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        accept-android-sdk-licenses: true
-        log-accepted-android-sdk-licenses: false
+        packages: ''
 
     - name: Create Project Structure and Files
       run: |
