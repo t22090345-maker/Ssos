@@ -1,4 +1,4 @@
-name: Build SOS Flashlight APK
+name: Build DJ Flashlight APK
 
 on:
   push:
@@ -24,7 +24,6 @@ jobs:
       with:
         packages: ''
 
-    # 🔧 मुख्य फिक्स: बिल्ड से पहले ही Gradle 8.2 सेटअप करें
     - name: Setup Gradle 8.2
       uses: gradle/actions/setup-gradle@v4
       with:
@@ -53,7 +52,7 @@ jobs:
                 mavenCentral()
             }
         }
-        rootProject.name = "SOS Flashlight"
+        rootProject.name = "DJ Flashlight"
         include ':app'
         EOF
 
@@ -115,18 +114,19 @@ jobs:
         }
         EOF
 
-        # 5. AndroidManifest.xml
+        # 5. AndroidManifest.xml (माइक्रोफोन परमिशन जोड़ी गई है बीट डिटेक्शन के लिए)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.CAMERA" />
             <uses-permission android:name="android.permission.FLASHLIGHT" />
+            <uses-permission android:name="android.permission.RECORD_AUDIO" />
             <uses-feature android:name="android.hardware.camera" />
             <uses-feature android:name="android.hardware.camera.flash" />
             <application
                 android:allowBackup="true"
                 android:icon="@android:drawable/ic_lock_power_off"
-                android:label="SOS Flashlight"
+                android:label="DJ Flashlight"
                 android:theme="@style/Theme.AppCompat.NoActionBar">
                 <activity
                     android:name=".MainActivity"
@@ -144,7 +144,7 @@ jobs:
         # 6. strings.xml
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
-            <string name="app_name">SOS Flashlight</string>
+            <string name="app_name">DJ Flashlight</string>
         </resources>
         EOF
 
@@ -156,7 +156,7 @@ jobs:
         </shape>
         EOF
 
-        # 8. activity_main.xml
+        # 8. activity_main.xml (नया UI: ऑडियो चुनने और DJ मोड के लिए)
         cat << 'EOF' > app/src/main/res/layout/activity_main.xml
         <?xml version="1.0" encoding="utf-8"?>
         <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -166,89 +166,126 @@ jobs:
             android:background="#0D47A1">
 
             <TextView
-                android:id="@+id/tvSos"
+                android:id="@+id/tvTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="80dp"
-                android:text="SOS"
+                android:layout_marginTop="60dp"
+                android:text="DJ FLASHLIGHT"
                 android:textColor="#FF5252"
-                android:textSize="40sp"
+                android:textSize="36sp"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
-                android:id="@+id/tvSpeedLabel"
+                android:id="@+id/tvFileName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:text="SPEED: MEDIUM"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
+                android:text="No Audio Selected"
+                android:textColor="#BBDEFB"
+                android:textSize="16sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvSos" />
+                app:layout_constraintTop_toBottomOf="@id/tvTitle" />
 
-            <SeekBar
-                android:id="@+id/seekBarSpeed"
-                android:layout_width="0dp"
+            <Button
+                android:id="@+id/btnSelectAudio"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:layout_marginHorizontal="40dp"
-                android:max="100"
-                android:progress="50"
+                android:backgroundTint="#1976D2"
+                android:text="Choose Audio"
+                android:textColor="#FFFFFF"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tvSpeedLabel" />
+                app:layout_constraintTop_toBottomOf="@id/tvFileName" />
 
             <ImageButton
-                android:id="@+id/btnPower"
+                android:id="@+id/btnPlayDj"
                 android:layout_width="150dp"
                 android:layout_height="150dp"
-                android:layout_marginTop="80dp"
+                android:layout_marginTop="50dp"
                 android:background="@drawable/circle_button_bg"
-                android:src="@android:drawable/ic_lock_power_off"
+                android:src="@android:drawable/ic_media_play"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/seekBarSpeed" />
+                app:layout_constraintTop_toBottomOf="@id/btnSelectAudio" />
+
+            <Button
+                android:id="@+id/btnSosMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="40dp"
+                android:backgroundTint="#D32F2F"
+                android:text="SOS Mode (Manual)"
+                android:textColor="#FFFFFF"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/btnPlayDj" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
         EOF
 
-        # 9. MainActivity.kt
+        # 9. MainActivity.kt (DJ मोड और ऑडियो बीट डिटेक्शन का लॉजिक)
         cat << 'EOF' > app/src/main/java/com/sos/flashlight/MainActivity.kt
         package com.sos.flashlight
 
+        import android.Manifest
         import android.content.Context
+        import android.content.pm.PackageManager
         import android.hardware.camera2.CameraManager
+        import android.media.MediaPlayer
+        import android.media.audiofx.Visualizer
+        import android.net.Uri
+        import android.os.Build
         import android.os.Bundle
         import android.os.Handler
         import android.os.Looper
+        import android.widget.Button
         import android.widget.ImageButton
-        import android.widget.SeekBar
         import android.widget.TextView
+        import android.widget.Toast
+        import androidx.activity.result.contract.ActivityResultContracts
         import androidx.appcompat.app.AppCompatActivity
+        import androidx.core.app.ActivityCompat
+        import androidx.core.content.ContextCompat
+        import kotlin.math.abs
 
         class MainActivity : AppCompatActivity() {
 
             private lateinit var cameraManager: CameraManager
             private var cameraId: String? = null
             private var isFlashOn = false
+
+            private lateinit var tvFileName: TextView
+            private lateinit var btnSelectAudio: Button
+            private lateinit var btnPlayDj: ImageButton
+            private lateinit var btnSosMode: Button
+
+            private var mediaPlayer: MediaPlayer? = null
+            private var visualizer: Visualizer? = null
+            private var selectedAudioUri: Uri? = null
+            private var isDjPlaying = false
+
+            // SOS मोड के लिए
             private var isSosMode = false
-            private var flashSpeedDelay: Long = 300
-
-            private lateinit var btnPower: ImageButton
-            private lateinit var seekBarSpeed: SeekBar
-            private lateinit var tvSpeedLabel: TextView
             private val handler = Handler(Looper.getMainLooper())
-
             private val flashRunnable = object : Runnable {
                 override fun run() {
-                    toggleFlash()
+                    toggleFlash(!isFlashOn)
                     if (isSosMode) {
-                        handler.postDelayed(this, flashSpeedDelay)
+                        handler.postDelayed(this, 300)
                     }
+                }
+            }
+
+            // ऑडियो चुनने का लांचर
+            private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                uri?.let {
+                    selectedAudioUri = it
+                    tvFileName.text = "Audio Ready!"
                 }
             }
 
@@ -263,57 +300,130 @@ jobs:
                     e.printStackTrace()
                 }
 
-                btnPower = findViewById(R.id.btnPower)
-                seekBarSpeed = findViewById(R.id.seekBarSpeed)
-                tvSpeedLabel = findViewById(R.id.tvSpeedLabel)
+                tvFileName = findViewById(R.id.tvFileName)
+                btnSelectAudio = findViewById(R.id.btnSelectAudio)
+                btnPlayDj = findViewById(R.id.btnPlayDj)
+                btnSosMode = findViewById(R.id.btnSosMode)
 
-                seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                        flashSpeedDelay = 1000L - (progress * 9.5).toLong()
-                        if (flashSpeedDelay < 50) flashSpeedDelay = 50
+                btnSelectAudio.setOnClickListener {
+                    getContent.launch("audio/*")
+                }
 
-                        val label = when {
-                            progress < 30 -> "SLOW"
-                            progress < 70 -> "MEDIUM"
-                            else -> "FAST"
-                        }
-                        tvSpeedLabel.text = "SPEED: $label"
-                    }
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                })
-
-                btnPower.setOnClickListener {
-                    if (isFlashOn || isSosMode) {
-                        stopFlash()
+                btnPlayDj.setOnClickListener {
+                    if (selectedAudioUri == null) {
+                        Toast.makeText(this, "पहले ऑडियो चुनें!", Toast.LENGTH_SHORT).show()
+                    } else if (isDjPlaying) {
+                        stopDjMode()
                     } else {
-                        startSosFlash()
+                        checkPermissionAndStartDj()
+                    }
+                }
+
+                btnSosMode.setOnClickListener {
+                    if (isDjPlaying) stopDjMode()
+                    if (isSosMode) {
+                        stopSosMode()
+                    } else {
+                        startSosMode()
                     }
                 }
             }
 
-            private fun startSosFlash() {
+            private fun checkPermissionAndStartDj() {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
+                } else {
+                    startDjMode()
+                }
+            }
+
+            override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+                if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startDjMode()
+                } else {
+                    Toast.makeText(this, "ऑडियो बीट के लिए माइक्रोफोन परमिशन चाहिए!", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            private fun startDjMode() {
+                try {
+                    mediaPlayer = MediaPlayer().apply {
+                        setDataSource(this@MainActivity, selectedAudioUri!!)
+                        prepare()
+                        start()
+                        setOnCompletionListener { stopDjMode() }
+                    }
+
+                    val sessionId = mediaPlayer!!.audioSessionId
+                    visualizer = Visualizer(sessionId).apply {
+                        captureSize = Visualizer.getCaptureSizeRange()[1]
+                        setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                            override fun onWaveFormDataCapture(visualizer: Visualizer, waveform: ByteArray, samplingRate: Int) {
+                                var sum = 0.0
+                                for (b in waveform) {
+                                    sum += abs(b.toInt()).toDouble()
+                                }
+                                val amplitude = sum / waveform.size
+                                // अगर आवाज़ का स्तर एक लिमिट से ज्यादा है तो फ्लैश ऑन करें
+                                if (amplitude > 10.0) {
+                                    toggleFlash(true)
+                                } else {
+                                    toggleFlash(false)
+                                }
+                            }
+
+                            override fun onFftDataCapture(visualizer: Visualizer, fft: ByteArray, samplingRate: Int) {}
+                        }, Visualizer.getMaxCaptureRate() / 2, true, false)
+                        enabled = true
+                    }
+
+                    isDjPlaying = true
+                    btnPlayDj.setImageResource(android.R.drawable.ic_media_pause)
+                    tvFileName.text = "DJ Mode: ON 🔥"
+                    btnSosMode.isEnabled = false
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this, "ऑडियो चलाने में एरर आया!", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            private fun stopDjMode() {
+                isDjPlaying = false
+                btnPlayDj.setImageResource(android.R.drawable.ic_media_play)
+                tvFileName.text = "Audio Ready!"
+                btnSosMode.isEnabled = true
+                
+                visualizer?.release()
+                visualizer = null
+                
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+                mediaPlayer = null
+                
+                toggleFlash(false)
+            }
+
+            private fun startSosMode() {
                 if (cameraId == null) return
                 isSosMode = true
-                isFlashOn = true
+                btnSosMode.text = "STOP SOS"
                 handler.post(flashRunnable)
             }
 
-            private fun stopFlash() {
+            private fun stopSosMode() {
                 isSosMode = false
-                isFlashOn = false
+                btnSosMode.text = "SOS Mode (Manual)"
                 handler.removeCallbacks(flashRunnable)
-                try {
-                    cameraManager.setTorchMode(cameraId!!, false)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                toggleFlash(false)
             }
 
-            private fun toggleFlash() {
+            private fun toggleFlash(state: Boolean) {
                 try {
-                    cameraManager.setTorchMode(cameraId!!, isFlashOn)
-                    isFlashOn = !isFlashOn
+                    if (cameraId != null && isFlashOn != state) {
+                        cameraManager.setTorchMode(cameraId!!, state)
+                        isFlashOn = state
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -321,12 +431,12 @@ jobs:
 
             override fun onDestroy() {
                 super.onDestroy()
-                stopFlash()
+                if (isDjPlaying) stopDjMode()
+                if (isSosMode) stopSosMode()
             }
         }
         EOF
 
-        # अब सिस्टम Gradle 8.2 का उपयोग करके Wrapper जेनरेट करें
         gradle wrapper --gradle-version 8.2 --no-daemon
 
     - name: Grant Execute Permission for Gradlew
@@ -338,5 +448,5 @@ jobs:
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: SOS-Flashlight-APK
+        name: DJ-Flashlight-APK
         path: app/build/outputs/apk/debug/app-debug.apk
