@@ -24,6 +24,12 @@ jobs:
       with:
         packages: ''
 
+    # 🔧 मुख्य फिक्स: बिल्ड से पहले ही Gradle 8.2 सेटअप करें
+    - name: Setup Gradle 8.2
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: 8.2
+
     - name: Create Project Structure and Files
       run: |
         mkdir -p app/src/main/java/com/sos/flashlight
@@ -59,13 +65,12 @@ jobs:
         }
         EOF
 
-        # 3. gradle.properties (मुख्य फिक्स)
+        # 3. gradle.properties
         cat << 'EOF' > gradle.properties
         org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
         android.useAndroidX=true
         kotlin.code.style=official
         android.nonTransitiveRClass=true
-        # Kotlin और Gradle के बीच वर्जन विसंगति को अनदेखा करने के लिए
         kotlin.jvm.target.validation.mode = IGNORE
         EOF
 
@@ -321,8 +326,8 @@ jobs:
         }
         EOF
 
-        # Gradle Wrapper जेनरेट करना - डेमन बंद करके
-        gradle wrapper --gradle-version 8.2 --no-daemon --info
+        # अब सिस्टम Gradle 8.2 का उपयोग करके Wrapper जेनरेट करें
+        gradle wrapper --gradle-version 8.2 --no-daemon
 
     - name: Grant Execute Permission for Gradlew
       run: chmod +x gradlew
