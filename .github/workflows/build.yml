@@ -1,0 +1,334 @@
+name: Build SOS Flashlight APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Create Project Structure and Files
+      run: |
+        # फोल्डर्स बनाना
+        mkdir -p app/src/main/java/com/sos/flashlight
+        mkdir -p app/src/main/res/layout
+        mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/res/drawable
+
+        # 1. settings.gradle
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "SOS Flashlight"
+        include ':app'
+        EOF
+
+        # 2. build.gradle (Root)
+        cat << 'EOF' > build.gradle
+        plugins {
+            id 'com.android.application' version '8.2.0' apply false
+            id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
+        }
+        EOF
+
+        # 3. gradle.properties
+        cat << 'EOF' > gradle.properties
+        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        android.useAndroidX=true
+        kotlin.code.style=official
+        android.nonTransitiveRClass=true
+        EOF
+
+        # 4. app/build.gradle
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android'
+        }
+
+        android {
+            namespace 'com.sos.flashlight'
+            compileSdk 34
+
+            defaultConfig {
+                applicationId "com.sos.flashlight"
+                minSdk 23
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+
+            buildTypes {
+                release {
+                    minifyEnabled false
+                }
+            }
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+
+        dependencies {
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+            implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+        }
+        EOF
+
+        # 5. AndroidManifest.xml
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-permission android:name="android.permission.FLASHLIGHT" />
+            <uses-feature android:name="android.hardware.camera" />
+            <uses-feature android:name="android.hardware.camera.flash" />
+            <application
+                android:allowBackup="true"
+                android:icon="@android:drawable/ic_lock_power_off"
+                android:label="SOS Flashlight"
+                android:theme="@style/Theme.AppCompat.NoActionBar">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:screenOrientation="portrait">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 6. strings.xml
+        cat << 'EOF' > app/src/main/res/values/strings.xml
+        <resources>
+            <string name="app_name">SOS Flashlight</string>
+        </resources>
+        EOF
+
+        # 7. circle_button_bg.xml (बटन का बैकग्राउंड)
+        cat << 'EOF' > app/src/main/res/drawable/circle_button_bg.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+            <solid android:color="#2196F3" />
+        </shape>
+        EOF
+
+        # 8. activity_main.xml (UI डिजाइन)
+        cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#0D47A1">
+
+            <TextView
+                android:id="@+id/tvSos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="80dp"
+                android:text="SOS"
+                android:textColor="#FF5252"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/tvSpeedLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="SPEED: MEDIUM"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvSos" />
+
+            <SeekBar
+                android:id="@+id/seekBarSpeed"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginHorizontal="40dp"
+                android:max="100"
+                android:progress="50"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvSpeedLabel" />
+
+            <ImageButton
+                android:id="@+id/btnPower"
+                android:layout_width="150dp"
+                android:layout_height="150dp"
+                android:layout_marginTop="80dp"
+                android:background="@drawable/circle_button_bg"
+                android:src="@android:drawable/ic_lock_power_off"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/seekBarSpeed" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+        EOF
+
+        # 9. MainActivity.kt (मुख्य कोडिंग और लॉजिक)
+        cat << 'EOF' > app/src/main/java/com/sos/flashlight/MainActivity.kt
+        package com.sos.flashlight
+
+        import android.content.Context
+        import android.hardware.camera2.CameraManager
+        import android.os.Bundle
+        import android.os.Handler
+        import android.os.Looper
+        import android.widget.ImageButton
+        import android.widget.SeekBar
+        import android.widget.TextView
+        import androidx.appcompat.app.AppCompatActivity
+
+        class MainActivity : AppCompatActivity() {
+
+            private lateinit var cameraManager: CameraManager
+            private var cameraId: String? = null
+            private var isFlashOn = false
+            private var isSosMode = false
+            private var flashSpeedDelay: Long = 300
+
+            private lateinit var btnPower: ImageButton
+            private lateinit var seekBarSpeed: SeekBar
+            private lateinit var tvSpeedLabel: TextView
+            private val handler = Handler(Looper.getMainLooper())
+
+            private val flashRunnable = object : Runnable {
+                override fun run() {
+                    toggleFlash()
+                    if (isSosMode) {
+                        handler.postDelayed(this, flashSpeedDelay)
+                    }
+                }
+            }
+
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                setContentView(R.layout.activity_main)
+
+                cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                try {
+                    cameraId = cameraManager.cameraIdList[0]
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                btnPower = findViewById(R.id.btnPower)
+                seekBarSpeed = findViewById(R.id.seekBarSpeed)
+                tvSpeedLabel = findViewById(R.id.tvSpeedLabel)
+
+                seekBarSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        flashSpeedDelay = 1000L - (progress * 9.5).toLong()
+                        if (flashSpeedDelay < 50) flashSpeedDelay = 50
+
+                        val label = when {
+                            progress < 30 -> "SLOW"
+                            progress < 70 -> "MEDIUM"
+                            else -> "FAST"
+                        }
+                        tvSpeedLabel.text = "SPEED: $label"
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                })
+
+                btnPower.setOnClickListener {
+                    if (isFlashOn || isSosMode) {
+                        stopFlash()
+                    } else {
+                        startSosFlash()
+                    }
+                }
+            }
+
+            private fun startSosFlash() {
+                if (cameraId == null) return
+                isSosMode = true
+                isFlashOn = true
+                handler.post(flashRunnable)
+            }
+
+            private fun stopFlash() {
+                isSosMode = false
+                isFlashOn = false
+                handler.removeCallbacks(flashRunnable)
+                try {
+                    cameraManager.setTorchMode(cameraId!!, false)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            private fun toggleFlash() {
+                try {
+                    cameraManager.setTorchMode(cameraId!!, isFlashOn)
+                    isFlashOn = !isFlashOn
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            override fun onDestroy() {
+                super.onDestroy()
+                stopFlash()
+            }
+        }
+        EOF
+
+        # Gradle wrapper जेनरेट करना
+        gradle wrapper --gradle-version 8.2
+
+    - name: Grant Execute Permission for Gradlew
+      run: chmod +x gradlew
+
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SOS-Flashlight-APK
+        path: app/build/outputs/apk/debug/app-debug.apk
